@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    FT SCServo DDS QoS Profiles
+    Reliable 통신을 위한 QoS 설정 (복구)
+-->
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="http://community.rti.com/schema/7.5.0/rti_dds_qos_profiles.xsd">
+    
+    <qos_library name="SCServoLibrary">
+        <qos_profile name="ReliableProfile" base_name="BuiltinQosLib::Generic.StrictReliable" is_default_qos="true">
+            
+            <datareader_qos>
+                <reliability>
+                    <kind>RELIABLE_RELIABILITY_QOS</kind>
+                </reliability>
+                <history>
+                    <kind>KEEP_LAST_HISTORY_QOS</kind>
+                    <depth>10</depth>
+                </history>
+            </datareader_qos>
+            
+            <datawriter_qos>
+                <reliability>
+                    <kind>RELIABLE_RELIABILITY_QOS</kind>
+                </reliability>
+                <history>
+                    <kind>KEEP_LAST_HISTORY_QOS</kind>
+                    <depth>10</depth>
+                </history>
+            </datawriter_qos>
+            
+        </qos_profile>
+    </qos_library>
+    
+</dds>

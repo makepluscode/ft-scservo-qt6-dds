@@ -1,0 +1,83 @@
+/*
+ * FT SCServo DDS Message Types
+ * Phase 2: 서보 제어 및 모니터링을 위한 확장 정의
+ */
+
+module scservo {
+
+    typedef string<64> String64;
+    typedef string<256> String256;
+
+    // 서보 상태 정보 구조체
+    struct ServoState {
+        int32 id;
+        int32 position;
+        int32 speed;
+        int32 load;
+        int32 voltage;      // 0.1V 단위
+        int32 temperature;
+        int32 current;      // mA
+    };
+
+    // 메모리 테이블 항목
+    struct MemoryVal {
+        int32 address;
+        int32 value;
+    };
+
+    // GUI → Daemon: 제어 명령
+    struct ServoCommand {
+        String64 command_type;   
+        // "connect" (port_name, baud_rate)
+        // "disconnect"
+        // "scan"
+        // "write" (id, address, value, size)
+        // "write_pos" (id, position, time, speed)
+        // "sync_write_pos" (array of ids, position, time, speed)
+
+        // 연결 설정
+        String64 port_name;
+        int32 baud_rate;
+
+        // 타겟 정보
+        int32 servo_id;            // -1 for Broadcast
+        sequence<int32> target_ids; // Sync Write용 ID 목록
+
+        // 제어 값
+        int32 address;             // 메모리 주소
+        int32 value;               // 메모리 값 또는 위치 값
+        int32 size;                // 데이터 크기 (1 or 2 bytes)
+        
+        // 이동 제어 상세
+        int32 time_ms;
+        int32 speed;
+        int32 acc;
+
+        int64 timestamp;
+    };
+
+    // Daemon → GUI: 피드백 및 상태
+    struct ServoFeedback {
+        String64 feedback_type;
+        // "status" (connection status, port list)
+        // "scan_result" (found servo ids)
+        // "servo_state" (periodic update)
+        // "ack" (command result)
+        // "error"
+
+        // 연결 상태
+        boolean connected;
+        String64 current_port;
+        sequence<String64> available_ports;
+
+        // 스캔/서보 정보
+        sequence<int32> found_ids;
+        ServoState state;          // 단일 서보 상태 업데이트
+
+        // 메시지
+        String256 message;
+        boolean is_error;
+
+        int64 timestamp;
+    };
+};

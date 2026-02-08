@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    FT SCServo DDS QoS Profiles
+    Reliable 통신을 위한 QoS 설정 (오프라인 모드)
+-->
+<dds>
+    <qos_library name="SCServoLibrary">
+        <qos_profile name="ReliableProfile" is_default_qos="true">
+            <datareader_qos>
+                <reliability>
+                    <kind>RELIABLE_RELIABILITY_QOS</kind>
+                </reliability>
+                <history>
+                    <kind>KEEP_LAST_HISTORY_QOS</kind>
+                    <depth>10</depth>
+                </history>
+            </datareader_qos>
+            
+            <datawriter_qos>
+                <reliability>
+                    <kind>RELIABLE_RELIABILITY_QOS</kind>
+                </reliability>
+                <history>
+                    <kind>KEEP_LAST_HISTORY_QOS</kind>
+                    <depth>10</depth>
+                </history>
+            </datawriter_qos>
+        </qos_profile>
+    </qos_library>
+</dds>
