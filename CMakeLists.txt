@@ -86,3 +86,24 @@ target_link_libraries(ServoGUI PRIVATE
 # QoS 프로파일
 # =============================================================================
 file(COPY USER_QOS_PROFILES.xml DESTINATION ${CMAKE_BINARY_DIR})
+
+# =============================================================================
+# Unit Tests (CLI 기반, 외부 의존성 없음)
+# =============================================================================
+option(BUILD_TESTS "Build unit tests" ON)
+
+if(BUILD_TESTS)
+    add_executable(ServoTest
+        tests/test_servo_daemon.cpp
+    )
+    
+    target_compile_features(ServoTest PRIVATE cxx_std_17)
+    
+    if(MSVC)
+        target_compile_options(ServoTest PRIVATE /utf-8 /W4)
+    endif()
+    
+    # CTest 통합 (선택적)
+    enable_testing()
+    add_test(NAME ServoTest COMMAND ServoTest)
+endif()

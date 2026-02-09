@@ -130,16 +130,39 @@ sequenceDiagram
 ### 3. DDS Topics (IDL)
 Defined in `scservo.idl`:
 
-*   **ServoCommand**:
-    *   `command_type` (string): "connect", "disconnect", "ping", "write_pos", "shutdown"
-    *   `value` (long): Generic value (Ping ID, Position, etc.)
-    *   `speed`, `acc`: Motion parameters.
+*   **ServoCommand** (GUI → Daemon):
+    | command_type | Description | Parameters |
+    |--------------|-------------|------------|
+    | `connect` | Open serial port | `port_name`, `baud_rate` |
+    | `disconnect` | Close serial port | - |
+    | `ping` | Test DDS link | `value` (ping ID) |
+    | `shutdown` | Stop daemon | - |
+    | `scan` | Scan for servos (ID 1-253) | - |
+    | `read_state` | Read servo status | `servo_id` |
+    | `write_pos` | Single servo position | `servo_id`, `value`, `speed`, `acc` |
+    | `sync_write_pos` | Multi-servo position | `target_ids`, `value`, `speed`, `acc` |
+    | `write` | Write to memory | `servo_id`, `address`, `value`, `size` |
+    | `enable_torque` | Enable/Disable torque | `servo_id`, `value` (0/1) |
 
-*   **ServoFeedback**:
-    *   `feedback_type` (string): "pong", "status", "error", "ping"
-    *   `message` (string): Human-readable message.
-    *   `is_error` (boolean): Error flag.
-    *   `connected` (boolean): Hardware connection state.
+*   **ServoFeedback** (Daemon → GUI):
+    | feedback_type | Description | Data |
+    |---------------|-------------|------|
+    | `pong` | Response to ping | `message` |
+    | `status` | Connection status | `connected`, `current_port` |
+    | `ping` | Heartbeat (1s) | `message` |
+    | `error` | Error notification | `message`, `is_error=true` |
+    | `scan_result` | Scan complete | `found_ids[]` |
+    | `servo_state` | Servo telemetry | `state.position, speed, load, voltage, temperature, current` |
+    | `ack` | Command acknowledgment | `message` |
+
+*   **ServoState** (embedded in ServoFeedback):
+    *   `id`: Servo ID
+    *   `position`: Current position (0-4095)
+    *   `speed`: Current speed
+    *   `load`: Motor load (0-1000)
+    *   `voltage`: Voltage (0.1V unit)
+    *   `temperature`: Temperature (°C)
+    *   `current`: Current (mA)
 
 ---
 

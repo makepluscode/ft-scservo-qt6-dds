@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-
 // Forward declarations to reduce compilation dependencies
 class SerialPort;
 namespace feetech_servo {
@@ -68,14 +67,30 @@ private:
   void handleDisconnect();
   void handlePing(int value);
   void handleWritePos(int id, int position, int speed, int acc);
+  void handleScan();
+  void handleReadState(int servoId);
+  void handleWrite(int servoId, int address, int value, int size);
+  void handleEnableTorque(int servoId, bool enable);
+  void handleSyncWritePos(const std::vector<int32_t> &ids, int position,
+                          int speed, int acc);
 
   // --- Feedback Helper Methods ---
   void sendFeedback(const std::string &type, const std::string &msg,
                     bool isError = false);
   void sendStatus(bool connected, const std::string &currentPort = "");
+  void sendScanResult(const std::vector<int32_t> &foundIds);
+  void sendServoState(int id, int pos, int speed, int load, int voltage,
+                      int temp, int current);
+
+  // --- Periodic state broadcast ---
+  void broadcastServoStates();
 
 private:
   std::atomic<bool> running_{false};
+
+  // --- Servo State Management ---
+  std::vector<int32_t> found_servo_ids_;
+  int selected_servo_id_{-1};
 
   // --- Hardware Interfaces (PIMPL idiom via unique_ptr) ---
   std::unique_ptr<SerialPort> serial_;

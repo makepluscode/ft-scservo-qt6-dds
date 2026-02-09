@@ -12,11 +12,9 @@
 #include "servo/scserial.h"
 #include "servo/sms_sts.h"
 
-
 #include <chrono>
 #include <iostream>
 #include <thread>
-
 
 // --- DDS Listener Class ---
 class DaemonListener
@@ -142,6 +140,17 @@ void ServoDaemon::processCommand(const scservo::ServoCommand &cmd) {
     handlePing(cmd.value());
   } else if (type == "write_pos") {
     handleWritePos(cmd.servo_id(), cmd.value(), cmd.speed(), cmd.acc());
+  } else if (type == "scan") {
+    handleScan();
+  } else if (type == "read_state") {
+    handleReadState(cmd.servo_id());
+  } else if (type == "write") {
+    handleWrite(cmd.servo_id(), cmd.address(), cmd.value(), cmd.size());
+  } else if (type == "enable_torque") {
+    handleEnableTorque(cmd.servo_id(), cmd.value() != 0);
+  } else if (type == "sync_write_pos") {
+    std::vector<int32_t> ids(cmd.target_ids().begin(), cmd.target_ids().end());
+    handleSyncWritePos(ids, cmd.value(), cmd.speed(), cmd.acc());
   } else {
     std::cout << "[Daemon] Unknown Command: " << type << std::endl;
   }
@@ -235,4 +244,187 @@ void ServoDaemon::sendStatus(bool connected, const std::string &currentPort) {
   fb.message(connected ? "Connected" : "Disconnected");
 
   feedback_writer_->write(fb);
+}
+
+// =============================================================================
+// Phase 2: Servo Control Handlers
+// =============================================================================
+
+void ServoDaemon::handleScan() {
+  std::cout << "[Daemon] Starting servo scan (ID 1-253)..." << std::endl;
+
+  if (!serial_ || !serial_->isOpen()) {
+    std::cerr << "[Daemon] Error: Port not open for scan." << std::endl;
+    sendFeedback("error", "Port not open", true);
+    return;
+  }
+
+  found_servo_ids_.clear();
+
+  for (int id = 1; id <= 253; ++id) {
+    int ret = sc_serial_->ping(static_cast<uint8_t>(id));
+    if (ret > 0) {
+      std::cout << "[Daemon] Found Servo ID: " << ret << std::endl;
+      found_servo_ids_.push_back(ret);
+    }
+  }
+
+  std::cout << "[Daemon] Scan complete. Found " << found_servo_ids_.size()
+            << " servos." << std::endl;
+  sendScanResult(found_servo_ids_);
+}
+
+void ServoDaemon::handleReadState(int servoId) {
+  if (!serial_ || !serial_->isOpen()) {
+    sendFeedback("error", "Port not open", true);
+    return;
+  }
+
+  // SMS_STS 프로토콜 기준으로 상태 읽기
+  int pos = sms_sts_->read_position(servoId);
+  int speed = sms_sts_->read_speed(servoId);
+  int load = sms_sts_->read_load(servoId);
+  int voltage = sms_sts_->read_voltage(servoId);
+  int temp = sms_sts_->read_temperature(servoId);
+  int current = sms_sts_->read_current(servoId);
+
+  sendServoState(servoId, pos, speed, load, voltage, temp, current);
+}
+
+void ServoDaemon::handleWrite(int servoId, int address, int value, int size) {
+  if (!serial_ || !serial_->isOpen()) {
+    sendFeedback("error", "Port not open", true);
+    return;
+  }
+
+  std::cout << "[Daemon] Write (ID: " << servoId << ", Addr: " << address
+            << ", Val: " << value << ", Size: " << size << ")" << std::endl;
+
+  int ret = 0;
+  if (size == 2) {
+    ret = sc_serial_->write_word(static_cast<uint8_t>(servoId),
+                                 static_cast<uint8_t>(address),
+                                 static_cast<uint16_t>(value));
+  } else {
+    ret = sc_serial_->write_byte(static_cast<uint8_t>(servoId),
+                                 static_cast<uint8_t>(address),
+                                 static_cast<uint8_t>(value));
+  }
+
+  if (ret == -1) {
+    sendFeedback("error", "Write failed", true);
+  } else {
+    sendFeedback("ack", "Write OK");
+  }
+}
+
+void ServoDaemon::handleEnableTorque(int servoId, bool enable) {
+  if (!serial_ || !serial_->isOpen()) {
+    sendFeedback("error", "Port not open", true);
+    return;
+  }
+
+  std::cout << "[Daemon] Torque " << (enable ? "Enable" : "Disable")
+            << " (ID: " << servoId << ")" << std::endl;
+
+  int ret =
+      sms_sts_->enable_torque(static_cast<uint8_t>(servoId), enable ? 1 : 0);
+  if (ret == -1) {
+    sendFeedback("error", "Torque control failed", true);
+  } else {
+    sendFeedback("ack", enable ? "Torque enabled" : "Torque disabled");
+  }
+}
+
+void ServoDaemon::handleSyncWritePos(const std::vector<int32_t> &ids,
+                                     int position, int speed, int acc) {
+  if (!serial_ || !serial_->isOpen()) {
+    sendFeedback("error", "Port not open", true);
+    return;
+  }
+
+  if (ids.empty()) {
+    sendFeedback("error", "No target IDs specified", true);
+    return;
+  }
+
+  std::cout << "[Daemon] SyncWritePos to " << ids.size() << " servos"
+            << " (Pos: " << position << ", Spd: " << speed << ", Acc: " << acc
+            << ")" << std::endl;
+
+  // 각 서보에 동일한 위치 명령 전송
+  std::vector<uint8_t> idArr;
+  std::vector<int16_t> posArr;
+  std::vector<uint16_t> spdArr;
+  std::vector<uint8_t> accArr;
+
+  for (int32_t id : ids) {
+    idArr.push_back(static_cast<uint8_t>(id));
+    posArr.push_back(static_cast<int16_t>(position));
+    spdArr.push_back(static_cast<uint16_t>(speed));
+    accArr.push_back(static_cast<uint8_t>(acc));
+  }
+
+  sms_sts_->sync_write_pos_ex(idArr.data(), static_cast<uint8_t>(idArr.size()),
+                              posArr.data(), spdArr.data(), accArr.data());
+  sendFeedback("ack", "SyncWrite OK");
+}
+
+void ServoDaemon::sendScanResult(const std::vector<int32_t> &foundIds) {
+  if (!feedback_writer_)
+    return;
+
+  scservo::ServoFeedback fb;
+  fb.feedback_type("scan_result");
+  fb.connected(serial_ && serial_->isOpen());
+
+  // found_ids에 결과 복사
+  fb.found_ids(foundIds);
+
+  std::string msg = "Found " + std::to_string(foundIds.size()) + " servos";
+  fb.message(msg);
+
+  feedback_writer_->write(fb);
+}
+
+void ServoDaemon::sendServoState(int id, int pos, int speed, int load,
+                                 int voltage, int temp, int current) {
+  if (!feedback_writer_)
+    return;
+
+  scservo::ServoFeedback fb;
+  fb.feedback_type("servo_state");
+  fb.connected(serial_ && serial_->isOpen());
+
+  // ServoState 구조체 채우기
+  scservo::ServoState state;
+  state.id(id);
+  state.position(pos);
+  state.speed(speed);
+  state.load(load);
+  state.voltage(voltage);
+  state.temperature(temp);
+  state.current(current);
+
+  fb.state(state);
+  fb.message("State update for ID " + std::to_string(id));
+
+  feedback_writer_->write(fb);
+}
+
+void ServoDaemon::broadcastServoStates() {
+  if (!serial_ || !serial_->isOpen() || found_servo_ids_.empty())
+    return;
+
+  // 모든 발견된 서보의 상태를 브로드캐스트
+  for (int32_t id : found_servo_ids_) {
+    int pos = sms_sts_->read_position(id);
+    int speed = sms_sts_->read_speed(id);
+    int load = sms_sts_->read_load(id);
+    int voltage = sms_sts_->read_voltage(id);
+    int temp = sms_sts_->read_temperature(id);
+    int current = sms_sts_->read_current(id);
+
+    sendServoState(id, pos, speed, load, voltage, temp, current);
+  }
 }
