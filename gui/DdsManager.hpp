@@ -8,10 +8,8 @@
 #include <QTimer>
 #include <memory>
 
-
 #include "scservo.hpp"
 #include <dds/dds.hpp>
-
 
 class DdsManager : public QObject {
   Q_OBJECT
@@ -31,10 +29,19 @@ public:
   bool daemonConnected() const { return daemon_connected_; }
   int pingCount() const { return ping_count_; }
   int pongCount() const { return pong_count_; }
+  QList<int> foundServoIds() const { return found_servo_ids_; }
 
+  // Phase 1 Commands
   Q_INVOKABLE void sendPing();
   Q_INVOKABLE void sendConnect(const QString &port, int baudRate);
   Q_INVOKABLE void clearMessages();
+
+  // Phase 2 Commands
+  Q_INVOKABLE void sendScan();
+  Q_INVOKABLE void sendReadState(int servoId);
+  Q_INVOKABLE void sendWritePos(int servoId, int position, int speed, int acc);
+  Q_INVOKABLE void sendEnableTorque(int servoId, bool enable);
+  Q_INVOKABLE void sendDisconnect();
 
   // Test Mode
   void setTestMode(bool test) { test_mode_ = test; }
@@ -64,6 +71,7 @@ private:
   bool daemon_connected_ = false;
   int ping_count_ = 0;
   int pong_count_ = 0;
+  QList<int> found_servo_ids_;
 
   QTimer *poll_timer_;
 

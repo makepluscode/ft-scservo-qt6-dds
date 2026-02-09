@@ -97,6 +97,102 @@ void DdsManager::clearMessages() {
   emit messagesChanged();
 }
 
+// =============================================================================
+// Phase 2 Commands
+// =============================================================================
+
+void DdsManager::sendScan() {
+  if (!command_writer_)
+    return;
+  try {
+    scservo::ServoCommand cmd;
+    cmd.command_type("scan");
+    cmd.timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now().time_since_epoch())
+                      .count());
+    command_writer_->write(cmd);
+    addMessage("Sent SCAN command");
+  } catch (const std::exception &ex) {
+    addMessage(QString("Scan failed: %1").arg(ex.what()));
+  }
+}
+
+void DdsManager::sendReadState(int servoId) {
+  if (!command_writer_)
+    return;
+  try {
+    scservo::ServoCommand cmd;
+    cmd.command_type("read_state");
+    cmd.servo_id(servoId);
+    cmd.timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now().time_since_epoch())
+                      .count());
+    command_writer_->write(cmd);
+    addMessage(QString("Sent READ_STATE (ID: %1)").arg(servoId));
+  } catch (const std::exception &ex) {
+    addMessage(QString("ReadState failed: %1").arg(ex.what()));
+  }
+}
+
+void DdsManager::sendWritePos(int servoId, int position, int speed, int acc) {
+  if (!command_writer_)
+    return;
+  try {
+    scservo::ServoCommand cmd;
+    cmd.command_type("write_pos");
+    cmd.servo_id(servoId);
+    cmd.value(position);
+    cmd.speed(speed);
+    cmd.acc(acc);
+    cmd.timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now().time_since_epoch())
+                      .count());
+    command_writer_->write(cmd);
+    addMessage(QString("Sent WRITE_POS (ID: %1, Pos: %2, Spd: %3)")
+                   .arg(servoId)
+                   .arg(position)
+                   .arg(speed));
+  } catch (const std::exception &ex) {
+    addMessage(QString("WritePos failed: %1").arg(ex.what()));
+  }
+}
+
+void DdsManager::sendEnableTorque(int servoId, bool enable) {
+  if (!command_writer_)
+    return;
+  try {
+    scservo::ServoCommand cmd;
+    cmd.command_type("enable_torque");
+    cmd.servo_id(servoId);
+    cmd.value(enable ? 1 : 0);
+    cmd.timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now().time_since_epoch())
+                      .count());
+    command_writer_->write(cmd);
+    addMessage(QString("Sent %1 TORQUE (ID: %2)")
+                   .arg(enable ? "ENABLE" : "DISABLE")
+                   .arg(servoId));
+  } catch (const std::exception &ex) {
+    addMessage(QString("EnableTorque failed: %1").arg(ex.what()));
+  }
+}
+
+void DdsManager::sendDisconnect() {
+  if (!command_writer_)
+    return;
+  try {
+    scservo::ServoCommand cmd;
+    cmd.command_type("disconnect");
+    cmd.timestamp(std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now().time_since_epoch())
+                      .count());
+    command_writer_->write(cmd);
+    addMessage("Sent DISCONNECT command");
+  } catch (const std::exception &ex) {
+    addMessage(QString("Disconnect failed: %1").arg(ex.what()));
+  }
+}
+
 void DdsManager::pollFeedback() {
   if (!feedback_reader_ || !command_writer_)
     return;
@@ -140,6 +236,27 @@ void DdsManager::pollFeedback() {
           addMessage(QString("Status: %1").arg(QString::fromStdString(msg)));
         } else if (type == "error") {
           addMessage(QString("Error: %1").arg(QString::fromStdString(msg)));
+        } else if (type == "scan_result") {
+          // Phase 2: Scan Result
+          found_servo_ids_.clear();
+          const auto &ids = fb.found_ids();
+          for (const auto &id : ids) {
+            found_servo_ids_.append(id);
+          }
+          addMessage(
+              QString("Scan found %1 servos").arg(found_servo_ids_.size()));
+        } else if (type == "servo_state") {
+          // Phase 2: Servo State
+          const auto &state = fb.state();
+          addMessage(QString("Servo[%1] Pos:%2 Spd:%3 Load:%4 V:%5 T:%6")
+                         .arg(state.id())
+                         .arg(state.position())
+                         .arg(state.speed())
+                         .arg(state.load())
+                         .arg(state.voltage() / 10.0)
+                         .arg(state.temperature()));
+        } else if (type == "ack") {
+          addMessage(QString("ACK: %1").arg(QString::fromStdString(msg)));
         }
       }
     }
