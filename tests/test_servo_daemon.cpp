@@ -14,7 +14,6 @@
 #include <thread>
 #include <vector>
 
-
 // Windows Serial Port Detection
 #ifdef _WIN32
 #include <windows.h>
@@ -234,6 +233,56 @@ private:
 #endif
 };
 
+// =============================================================================
+// SMS_STS Register Addresses
+// =============================================================================
+constexpr uint8_t SMS_STS_MODEL_L = 3;
+constexpr uint8_t SMS_STS_MODEL_H = 4;
+constexpr uint8_t SMS_STS_ID = 5;
+constexpr uint8_t SMS_STS_BAUD_RATE = 6;
+constexpr uint8_t SMS_STS_PRESENT_POSITION_L = 56;
+constexpr uint8_t SMS_STS_PRESENT_POSITION_H = 57;
+constexpr uint8_t SMS_STS_PRESENT_SPEED_L = 58;
+constexpr uint8_t SMS_STS_PRESENT_SPEED_H = 59;
+constexpr uint8_t SMS_STS_PRESENT_LOAD_L = 60;
+constexpr uint8_t SMS_STS_PRESENT_LOAD_H = 61;
+constexpr uint8_t SMS_STS_PRESENT_VOLTAGE = 62;
+constexpr uint8_t SMS_STS_PRESENT_TEMPERATURE = 63;
+constexpr uint8_t SMS_STS_MOVING = 66;
+constexpr uint8_t SMS_STS_PRESENT_CURRENT_L = 69;
+constexpr uint8_t SMS_STS_PRESENT_CURRENT_H = 70;
+
+// Servo Status Structure
+struct ServoStatus {
+  int modelNumber = -1;
+  int position = -1;
+  int speed = -1;
+  int load = -1;
+  int voltage = -1;     // 0.1V unit
+  int temperature = -1; // Celsius
+  int current = -1;     // mA
+  int moving = -1;
+
+  bool isValid() const {
+    return position >= 0 && position <= 4095 && voltage >= 0 &&
+           voltage <= 255 && temperature >= 0 && temperature <= 100;
+  }
+
+  void print() const {
+    std::cout << "      Position: " << position << " (0-4095)" << std::endl;
+    std::cout << "      Speed: " << speed << std::endl;
+    std::cout << "      Load: " << load << " (0-1000)" << std::endl;
+    std::cout << "      Voltage: " << (voltage / 10.0) << " V" << std::endl;
+    std::cout << "      Temperature: " << temperature << " C" << std::endl;
+    std::cout << "      Current: " << current << " mA" << std::endl;
+    std::cout << "      Moving: " << moving << std::endl;
+  }
+};
+
+// =============================================================================
+// SCServo Protocol Implementation
+// =============================================================================
+
 // SCServo Ping Protocol Implementation
 int pingServo(SerialPort &port, uint8_t id) {
   // Feetech SCServo Ping Packet: FF FF ID LEN INST CHECKSUM
@@ -267,6 +316,92 @@ int pingServo(SerialPort &port, uint8_t id) {
   }
 
   return -1;
+}
+
+// Read single byte from servo memory
+int readByte(SerialPort &port, uint8_t id, uint8_t address) {
+  // INST_READ = 0x02
+  // Packet: FF FF ID LEN INST ADDR READ_LEN CHECKSUM
+  uint8_t packet[8];
+  packet[0] = 0xFF;
+  packet[1] = 0xFF;
+  packet[2] = id;
+  packet[3] = 4;    // Length (INST + ADDR + READ_LEN + CHECKSUM)
+  packet[4] = 0x02; // INST_READ
+  packet[5] = address;
+  packet[6] = 1; // Read 1 byte
+
+  uint8_t checksum =
+      ~(packet[2] + packet[3] + packet[4] + packet[5] + packet[6]) & 0xFF;
+  packet[7] = checksum;
+
+  if (port.write(packet, 8) != 8) {
+    return -1;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  // Response: FF FF ID LEN ERR DATA CHECKSUM
+  uint8_t response[32];
+  int bytesRead = port.read(response, sizeof(response));
+
+  if (bytesRead >= 7 && response[0] == 0xFF && response[1] == 0xFF) {
+    // response[5] is the data byte
+    return response[5];
+  }
+
+  return -1;
+}
+
+// Read word (2 bytes) from servo memory
+int readWord(SerialPort &port, uint8_t id, uint8_t address) {
+  // Packet: FF FF ID LEN INST ADDR READ_LEN CHECKSUM
+  uint8_t packet[8];
+  packet[0] = 0xFF;
+  packet[1] = 0xFF;
+  packet[2] = id;
+  packet[3] = 4;    // Length
+  packet[4] = 0x02; // INST_READ
+  packet[5] = address;
+  packet[6] = 2; // Read 2 bytes
+
+  uint8_t checksum =
+      ~(packet[2] + packet[3] + packet[4] + packet[5] + packet[6]) & 0xFF;
+  packet[7] = checksum;
+
+  if (port.write(packet, 8) != 8) {
+    return -1;
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  // Response: FF FF ID LEN ERR DATA_L DATA_H CHECKSUM
+  uint8_t response[32];
+  int bytesRead = port.read(response, sizeof(response));
+
+  if (bytesRead >= 8 && response[0] == 0xFF && response[1] == 0xFF) {
+    // Little-endian: low byte first
+    int16_t value = response[5] | (response[6] << 8);
+    return value;
+  }
+
+  return -1;
+}
+
+// Read all servo status values
+ServoStatus readServoStatus(SerialPort &port, uint8_t id) {
+  ServoStatus status;
+
+  status.modelNumber = readWord(port, id, SMS_STS_MODEL_L);
+  status.position = readWord(port, id, SMS_STS_PRESENT_POSITION_L);
+  status.speed = readWord(port, id, SMS_STS_PRESENT_SPEED_L);
+  status.load = readWord(port, id, SMS_STS_PRESENT_LOAD_L);
+  status.voltage = readByte(port, id, SMS_STS_PRESENT_VOLTAGE);
+  status.temperature = readByte(port, id, SMS_STS_PRESENT_TEMPERATURE);
+  status.current = readWord(port, id, SMS_STS_PRESENT_CURRENT_L);
+  status.moving = readByte(port, id, SMS_STS_MOVING);
+
+  return status;
 }
 
 } // namespace hw
@@ -500,6 +635,115 @@ void runHardwareTests(const std::string &portName, int baudRate) {
 
     test::EXPECT_GT(static_cast<int>(found.size()), 0,
                     "Should find at least one servo");
+  });
+
+  // === Comprehensive Status Reading Tests ===
+  std::cout << "\n[Hardware Status Tests]" << std::endl;
+
+  // Store first found servo ID for subsequent tests
+  int testServoId = 1;
+
+  test::runTest("HW_ReadPosition", [&]() {
+    int pos = hw::readWord(port, testServoId, hw::SMS_STS_PRESENT_POSITION_L);
+    if (pos == -1) {
+      test::SKIP("Failed to read position");
+    }
+    std::cout << "    Position: " << pos << std::endl;
+    test::EXPECT_TRUE(pos >= 0 && pos <= 4095,
+                      "Position out of range (0-4095): " + std::to_string(pos));
+  });
+
+  test::runTest("HW_ReadSpeed", [&]() {
+    int speed = hw::readWord(port, testServoId, hw::SMS_STS_PRESENT_SPEED_L);
+    if (speed == -1) {
+      test::SKIP("Failed to read speed");
+    }
+    std::cout << "    Speed: " << speed << std::endl;
+    // Speed can be negative (direction), so check absolute value
+    int absSpeed = (speed < 0) ? -speed : speed;
+    test::EXPECT_TRUE(absSpeed >= 0 && absSpeed <= 32767,
+                      "Speed out of range: " + std::to_string(speed));
+  });
+
+  test::runTest("HW_ReadLoad", [&]() {
+    int load = hw::readWord(port, testServoId, hw::SMS_STS_PRESENT_LOAD_L);
+    if (load == -1) {
+      test::SKIP("Failed to read load");
+    }
+    std::cout << "    Load: " << load << " (0-1000)" << std::endl;
+    // Load can have sign bit for direction
+    int absLoad = load & 0x3FF; // Lower 10 bits
+    test::EXPECT_TRUE(absLoad >= 0 && absLoad <= 1000,
+                      "Load out of range (0-1000): " + std::to_string(absLoad));
+  });
+
+  test::runTest("HW_ReadVoltage", [&]() {
+    int voltage = hw::readByte(port, testServoId, hw::SMS_STS_PRESENT_VOLTAGE);
+    if (voltage == -1) {
+      test::SKIP("Failed to read voltage");
+    }
+    double voltageV = voltage / 10.0;
+    std::cout << "    Voltage: " << voltageV << " V" << std::endl;
+    // Typical range: 5V - 15V (50 - 150 in 0.1V units)
+    test::EXPECT_TRUE(voltage >= 40 && voltage <= 180,
+                      "Voltage out of expected range (4-18V): " +
+                          std::to_string(voltageV) + "V");
+  });
+
+  test::runTest("HW_ReadTemperature", [&]() {
+    int temp = hw::readByte(port, testServoId, hw::SMS_STS_PRESENT_TEMPERATURE);
+    if (temp == -1) {
+      test::SKIP("Failed to read temperature");
+    }
+    std::cout << "    Temperature: " << temp << " C" << std::endl;
+    // Operating temperature: typically 0-85°C
+    test::EXPECT_TRUE(
+        temp >= 0 && temp <= 100,
+        "Temperature out of range (0-100C): " + std::to_string(temp) + "C");
+  });
+
+  test::runTest("HW_ReadCurrent", [&]() {
+    int current =
+        hw::readWord(port, testServoId, hw::SMS_STS_PRESENT_CURRENT_L);
+    if (current == -1) {
+      test::SKIP("Failed to read current");
+    }
+    std::cout << "    Current: " << current << " mA" << std::endl;
+    // Current range: typically 0-2000mA
+    int absCurrent = (current < 0) ? -current : current;
+    test::EXPECT_TRUE(absCurrent >= 0 && absCurrent <= 5000,
+                      "Current out of range: " + std::to_string(current) +
+                          "mA");
+  });
+
+  test::runTest("HW_ReadMoving", [&]() {
+    int moving = hw::readByte(port, testServoId, hw::SMS_STS_MOVING);
+    if (moving == -1) {
+      test::SKIP("Failed to read moving status");
+    }
+    std::cout << "    Moving: " << (moving ? "Yes" : "No") << std::endl;
+    test::EXPECT_TRUE(moving == 0 || moving == 1,
+                      "Moving flag should be 0 or 1: " +
+                          std::to_string(moving));
+  });
+
+  test::runTest("HW_ReadModelNumber", [&]() {
+    int model = hw::readWord(port, testServoId, hw::SMS_STS_MODEL_L);
+    if (model == -1) {
+      test::SKIP("Failed to read model number");
+    }
+    std::cout << "    Model Number: " << model << std::endl;
+    test::EXPECT_TRUE(model > 0, "Model number should be positive");
+  });
+
+  // === Full Status Validation ===
+  test::runTest("HW_FullStatusValid", [&]() {
+    hw::ServoStatus status = hw::readServoStatus(port, testServoId);
+
+    std::cout << "    --- Full Servo Status ---" << std::endl;
+    status.print();
+
+    test::EXPECT_TRUE(status.isValid(), "Servo status validation failed");
   });
 
   port.close();
