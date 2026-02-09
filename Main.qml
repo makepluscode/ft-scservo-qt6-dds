@@ -1,7 +1,7 @@
 /*
  * Main.qml - FT SCServo Qt6 DDS GUI
- * Based on feetech-servo-tool reference
- * 해상도: 1280 x 800
+ * Precisely matched to the provided .ui file coordinates and structure.
+ * UI Version: MainWindow (937x706)
  */
 
 import QtQuick
@@ -9,878 +9,283 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 ApplicationWindow {
-    id: mainWindow
-    width: 1280
-    height: 800
+    id: window
+    width: 937
+    height: 706
     visible: true
-    title: "FT SCServo Tool - Qt6 DDS"
-    color: bgColor
+    title: "Feetech Servo Tool"
 
-    // ========== 다크 테마 색상 ==========
-    readonly property color bgColor: "#0f0f0f"
-    readonly property color cardColor: "#1a1a1a"
-    readonly property color cardHoverColor: "#252525"
-    readonly property color accentColor: "#3b82f6"
-    readonly property color successColor: "#22c55e"
-    readonly property color warningColor: "#f59e0b"
-    readonly property color errorColor: "#ef4444"
-    readonly property color textPrimary: "#ffffff"
-    readonly property color textSecondary: "#a0a0a0"
-    readonly property color borderColor: "#333333"
-    readonly property color inputBgColor: "#252525"
+    // ========== DESIGN SYSTEM ==========
+    readonly property color cBg: "#0c0c0e"
+    readonly property color cPanel: "#18181b"
+    readonly property color cBorder: "#27272a"
+    readonly property color cAccent: "#3b82f6"
+    readonly property color cText: "#fafafa"
+    readonly property color cSub: "#a1a1aa"
+    readonly property color cHighlight: "#2563eb"
+    readonly property color cEdit: "#09090b"
 
-    // ========== 상태 변수 ==========
+    background: Rectangle { color: cBg }
+
+    // ========== APP STATE ==========
     property bool isConnected: false
     property bool isSearching: false
-    property int selectedServoId: -1
-    property var foundServos: []
+    property int selectedId: -1
+    property var servoList: []
     
-    // 서보 상태
-    property int servoPosition: 0
-    property int servoGoal: 2048
-    property int servoSpeed: 0
-    property int servoLoad: 0
-    property real servoVoltage: 0.0
-    property int servoTemperature: 0
-    property int servoCurrent: 0
-    property bool servoMoving: false
-    property bool torqueEnabled: false
-
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 12
-
-        // ========== Header ==========
-        Rectangle {
-            Layout.fillWidth: true
-            height: 50
-            radius: 8
-            color: cardColor
-            border.color: borderColor
-            border.width: 1
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 16
-
-                // 연결 상태 LED
-                Rectangle {
-                    width: 12
-                    height: 12
-                    radius: 6
-                    color: isConnected ? successColor : (ddsManager.daemonConnected ? warningColor : errorColor)
-                    
-                    SequentialAnimation on opacity {
-                        running: !ddsManager.daemonConnected
-                        loops: Animation.Infinite
-                        NumberAnimation { to: 0.4; duration: 500 }
-                        NumberAnimation { to: 1.0; duration: 500 }
-                    }
-                }
-
-                Text {
-                    text: isConnected ? "Connected to Servo" : 
-                          (ddsManager.daemonConnected ? "Daemon Ready" : "Waiting for Daemon...")
-                    color: textPrimary
-                    font.pixelSize: 14
-                    font.weight: Font.Medium
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "FT SCServo Tool"
-                    color: textSecondary
-                    font.pixelSize: 14
-                    font.weight: Font.Bold
-                }
-            }
-        }
-
-        // ========== Main Content ==========
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 12
-
-            // ===== Left Column: COM Settings + Servo List =====
-            ColumnLayout {
-                Layout.preferredWidth: 280
-                Layout.fillHeight: true
-                spacing: 12
-
-                // --- COM Settings Card ---
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 180
-                    radius: 8
-                    color: cardColor
-                    border.color: borderColor
-                    border.width: 1
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
-
-                        Text {
-                            text: "📡 COM Settings"
-                            color: textPrimary
-                            font.pixelSize: 14
-                            font.weight: Font.Bold
-                        }
-
-                        Rectangle { Layout.fillWidth: true; height: 1; color: borderColor }
-
-                        // Port Selection
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-
-                            Text { text: "Port:"; color: textSecondary; font.pixelSize: 12; Layout.preferredWidth: 50 }
-                            ComboBox {
-                                id: portCombo
-                                Layout.fillWidth: true
-                                model: ["COM1", "COM3", "COM6", "COM7"]
-                                currentIndex: 2
-                                enabled: !isConnected
-                                
-                                background: Rectangle {
-                                    radius: 4
-                                    color: inputBgColor
-                                    border.color: borderColor
-                                }
-                                contentItem: Text {
-                                    text: portCombo.displayText
-                                    color: textPrimary
-                                    font.pixelSize: 12
-                                    verticalAlignment: Text.AlignVCenter
-                                    leftPadding: 8
-                                }
-                            }
-                        }
-
-                        // Baud Rate
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-
-                            Text { text: "Baud:"; color: textSecondary; font.pixelSize: 12; Layout.preferredWidth: 50 }
-                            ComboBox {
-                                id: baudCombo
-                                Layout.fillWidth: true
-                                model: ["1000000", "500000", "250000", "115200", "57600", "38400", "19200", "9600"]
-                                currentIndex: 0
-                                enabled: !isConnected
-                                
-                                background: Rectangle {
-                                    radius: 4
-                                    color: inputBgColor
-                                    border.color: borderColor
-                                }
-                                contentItem: Text {
-                                    text: baudCombo.displayText
-                                    color: textPrimary
-                                    font.pixelSize: 12
-                                    verticalAlignment: Text.AlignVCenter
-                                    leftPadding: 8
-                                }
-                            }
-                        }
-
-                        // Connect Button
-                        Button {
-                            id: connectBtn
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 36
-                            text: isConnected ? "🔌 Disconnect" : "🔗 Connect"
-                            enabled: ddsManager.daemonConnected
-
-                            background: Rectangle {
-                                radius: 6
-                                color: isConnected ? errorColor : 
-                                       (connectBtn.pressed ? Qt.darker(successColor, 1.2) : 
-                                        connectBtn.hovered ? Qt.lighter(successColor, 1.1) : successColor)
-                                opacity: connectBtn.enabled ? 1.0 : 0.5
-                            }
-
-                            contentItem: Text {
-                                text: connectBtn.text
-                                color: textPrimary
-                                font.pixelSize: 13
-                                font.weight: Font.Medium
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            onClicked: {
-                                if (isConnected) {
-                                    ddsManager.sendDisconnect()
-                                    isConnected = false
-                                    foundServos = []
-                                    selectedServoId = -1
-                                } else {
-                                    ddsManager.sendConnect(portCombo.currentText, parseInt(baudCombo.currentText))
-                                    isConnected = true
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // --- Servo List Card ---
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    radius: 8
-                    color: cardColor
-                    border.color: borderColor
-                    border.width: 1
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
-
-                        RowLayout {
-                            Layout.fillWidth: true
-
-                            Text {
-                                text: "🔍 Servo List"
-                                color: textPrimary
-                                font.pixelSize: 14
-                                font.weight: Font.Bold
-                            }
-
-                            Item { Layout.fillWidth: true }
-
-                            Text {
-                                text: foundServos.length + " found"
-                                color: textSecondary
-                                font.pixelSize: 11
-                            }
-                        }
-
-                        Rectangle { Layout.fillWidth: true; height: 1; color: borderColor }
-
-                        // Search Status
-                        Text {
-                            id: searchStatus
-                            text: isSearching ? "Scanning..." : "Ready"
-                            color: isSearching ? warningColor : textSecondary
-                            font.pixelSize: 11
-                            visible: isConnected
-                        }
-
-                        // Servo List View
-                        ListView {
-                            id: servoListView
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            model: foundServos
-                            clip: true
-                            spacing: 4
-
-                            delegate: Rectangle {
-                                width: servoListView.width
-                                height: 36
-                                radius: 4
-                                color: selectedServoId === modelData.id ? accentColor : 
-                                       (delegateMA.containsMouse ? cardHoverColor : "transparent")
-                                border.color: selectedServoId === modelData.id ? accentColor : borderColor
-                                border.width: 1
-
-                                MouseArea {
-                                    id: delegateMA
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onClicked: {
-                                        selectedServoId = modelData.id
-                                        // 상태 읽기 시작
-                                        readStateTimer.start()
-                                    }
-                                }
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 12
-
-                                    Text {
-                                        text: "ID " + modelData.id
-                                        color: selectedServoId === modelData.id ? textPrimary : textSecondary
-                                        font.pixelSize: 12
-                                        font.weight: Font.Medium
-                                    }
-
-                                    Text {
-                                        text: modelData.model || "ST3215"
-                                        color: selectedServoId === modelData.id ? textPrimary : textSecondary
-                                        font.pixelSize: 11
-                                    }
-                                }
-                            }
-
-                            // Empty state
-                            Text {
-                                anchors.centerIn: parent
-                                visible: foundServos.length === 0
-                                text: isConnected ? "No servos found.\nClick Search." : "Connect first."
-                                color: textSecondary
-                                font.pixelSize: 12
-                                horizontalAlignment: Text.AlignHCenter
-                                opacity: 0.6
-                            }
-                        }
-
-                        // Search Button
-                        Button {
-                            id: searchBtn
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 32
-                            text: isSearching ? "⏹️ Stop" : "🔎 Search"
-                            enabled: isConnected
-
-                            background: Rectangle {
-                                radius: 6
-                                color: searchBtn.pressed ? Qt.darker(accentColor, 1.2) : 
-                                       searchBtn.hovered ? Qt.lighter(accentColor, 1.1) : accentColor
-                                opacity: searchBtn.enabled ? 1.0 : 0.5
-                            }
-
-                            contentItem: Text {
-                                text: searchBtn.text
-                                color: textPrimary
-                                font.pixelSize: 12
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
-
-                            onClicked: {
-                                if (isSearching) {
-                                    isSearching = false
-                                } else {
-                                    isSearching = true
-                                    foundServos = []
-                                    ddsManager.sendScan()
-                                    // 임시: 2초 후 더미 데이터
-                                    scanTimer.start()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ===== Center Column: Servo Control + Status =====
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: 12
-
-                // --- Tab Bar ---
-                TabBar {
-                    id: tabBar
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 40
-
-                    background: Rectangle {
-                        color: cardColor
-                        radius: 8
-                    }
-
-                    TabButton {
-                        text: "🎮 Debug"
-                        width: implicitWidth
-                        
-                        background: Rectangle {
-                            color: tabBar.currentIndex === 0 ? accentColor : "transparent"
-                            radius: 6
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: textPrimary
-                            font.pixelSize: 13
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-
-                    TabButton {
-                        text: "⚙️ Programming"
-                        width: implicitWidth
-                        
-                        background: Rectangle {
-                            color: tabBar.currentIndex === 1 ? accentColor : "transparent"
-                            radius: 6
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: textPrimary
-                            font.pixelSize: 13
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                    }
-                }
-
-                // --- Tab Content ---
-                StackLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    currentIndex: tabBar.currentIndex
-
-                    // ===== Debug Tab =====
-                    RowLayout {
-                        spacing: 12
-
-                        // --- Servo Control ---
-                        Rectangle {
-                            Layout.preferredWidth: 300
-                            Layout.fillHeight: true
-                            radius: 8
-                            color: cardColor
-                            border.color: borderColor
-                            border.width: 1
-
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                spacing: 12
-
-                                Text {
-                                    text: "🎛️ Servo Control"
-                                    color: textPrimary
-                                    font.pixelSize: 14
-                                    font.weight: Font.Bold
-                                }
-
-                                Rectangle { Layout.fillWidth: true; height: 1; color: borderColor }
-
-                                // Mode Selection
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 8
-
-                                    RadioButton {
-                                        id: writeMode
-                                        text: "Write"
-                                        checked: true
-                                        
-                                        contentItem: Text {
-                                            text: parent.text
-                                            color: textSecondary
-                                            font.pixelSize: 11
-                                            leftPadding: parent.indicator.width + 4
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-                                    }
-                                    RadioButton {
-                                        id: syncMode
-                                        text: "Sync"
-                                        
-                                        contentItem: Text {
-                                            text: parent.text
-                                            color: textSecondary
-                                            font.pixelSize: 11
-                                            leftPadding: parent.indicator.width + 4
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-                                    }
-                                    RadioButton {
-                                        id: regMode
-                                        text: "Reg"
-                                        
-                                        contentItem: Text {
-                                            text: parent.text
-                                            color: textSecondary
-                                            font.pixelSize: 11
-                                            leftPadding: parent.indicator.width + 4
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-                                    }
-                                }
-
-                                // Goal Slider
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Text { text: "Goal:"; color: textSecondary; font.pixelSize: 12 }
-                                        Item { Layout.fillWidth: true }
-                                        TextField {
-                                            id: goalInput
-                                            Layout.preferredWidth: 80
-                                            text: goalSlider.value.toFixed(0)
-                                            color: textPrimary
-                                            font.pixelSize: 12
-                                            horizontalAlignment: Text.AlignRight
-                                            
-                                            background: Rectangle {
-                                                radius: 4
-                                                color: inputBgColor
-                                                border.color: borderColor
-                                            }
-                                            
-                                            onEditingFinished: {
-                                                goalSlider.value = parseInt(text) || 2048
-                                            }
-                                        }
-                                    }
-
-                                    Slider {
-                                        id: goalSlider
-                                        Layout.fillWidth: true
-                                        from: 0
-                                        to: 4095
-                                        value: 2048
-                                        stepSize: 1
-
-                                        background: Rectangle {
-                                            x: goalSlider.leftPadding
-                                            y: goalSlider.topPadding + goalSlider.availableHeight / 2 - height / 2
-                                            width: goalSlider.availableWidth
-                                            height: 6
-                                            radius: 3
-                                            color: inputBgColor
-
-                                            Rectangle {
-                                                width: goalSlider.visualPosition * parent.width
-                                                height: parent.height
-                                                radius: 3
-                                                color: accentColor
-                                            }
-                                        }
-
-                                        handle: Rectangle {
-                                            x: goalSlider.leftPadding + goalSlider.visualPosition * (goalSlider.availableWidth - width)
-                                            y: goalSlider.topPadding + goalSlider.availableHeight / 2 - height / 2
-                                            width: 18
-                                            height: 18
-                                            radius: 9
-                                            color: goalSlider.pressed ? Qt.lighter(accentColor, 1.2) : accentColor
-                                            border.color: textPrimary
-                                            border.width: 2
-                                        }
-
-                                        onMoved: {
-                                            if (selectedServoId > 0) {
-                                                servoGoal = value
-                                                ddsManager.sendWritePos(selectedServoId, value, parseInt(speedInput.text) || 0, parseInt(accInput.text) || 0)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Speed / Acc / Time
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    rowSpacing: 8
-                                    columnSpacing: 12
-
-                                    Text { text: "Speed:"; color: textSecondary; font.pixelSize: 12 }
-                                    TextField {
-                                        id: speedInput
-                                        Layout.fillWidth: true
-                                        text: "0"
-                                        color: textPrimary
-                                        font.pixelSize: 12
-                                        
-                                        background: Rectangle {
-                                            radius: 4
-                                            color: inputBgColor
-                                            border.color: borderColor
-                                        }
-                                    }
-
-                                    Text { text: "Acc:"; color: textSecondary; font.pixelSize: 12 }
-                                    TextField {
-                                        id: accInput
-                                        Layout.fillWidth: true
-                                        text: "0"
-                                        color: textPrimary
-                                        font.pixelSize: 12
-                                        
-                                        background: Rectangle {
-                                            radius: 4
-                                            color: inputBgColor
-                                            border.color: borderColor
-                                        }
-                                    }
-                                }
-
-                                // Set Button
-                                Button {
-                                    id: setBtn
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    text: "📤 Set Position"
-                                    enabled: selectedServoId > 0
-
-                                    background: Rectangle {
-                                        radius: 6
-                                        color: setBtn.pressed ? Qt.darker(accentColor, 1.2) : 
-                                               setBtn.hovered ? Qt.lighter(accentColor, 1.1) : accentColor
-                                        opacity: setBtn.enabled ? 1.0 : 0.5
-                                    }
-
-                                    contentItem: Text {
-                                        text: setBtn.text
-                                        color: textPrimary
-                                        font.pixelSize: 13
-                                        font.weight: Font.Medium
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
-                                    }
-
-                                    onClicked: {
-                                        ddsManager.sendWritePos(
-                                            selectedServoId,
-                                            parseInt(goalInput.text) || 2048,
-                                            parseInt(speedInput.text) || 0,
-                                            parseInt(accInput.text) || 0
-                                        )
-                                    }
-                                }
-
-                                Rectangle { Layout.fillWidth: true; height: 1; color: borderColor }
-
-                                // Torque Enable
-                                RowLayout {
-                                    Layout.fillWidth: true
-
-                                    CheckBox {
-                                        id: torqueCheck
-                                        text: "Torque Enable"
-                                        checked: torqueEnabled
-                                        enabled: selectedServoId > 0
-
-                                        contentItem: Text {
-                                            text: parent.text
-                                            color: textSecondary
-                                            font.pixelSize: 12
-                                            leftPadding: parent.indicator.width + 8
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-
-                                        onCheckedChanged: {
-                                            if (selectedServoId > 0) {
-                                                ddsManager.sendEnableTorque(selectedServoId, checked)
-                                                torqueEnabled = checked
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Item { Layout.fillHeight: true }
-                            }
-                        }
-
-                        // --- Status Monitor ---
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            radius: 8
-                            color: cardColor
-                            border.color: borderColor
-                            border.width: 1
-
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                spacing: 12
-
-                                Text {
-                                    text: "📊 Status Monitor" + (selectedServoId > 0 ? " (ID: " + selectedServoId + ")" : "")
-                                    color: textPrimary
-                                    font.pixelSize: 14
-                                    font.weight: Font.Bold
-                                }
-
-                                Rectangle { Layout.fillWidth: true; height: 1; color: borderColor }
-
-                                // Status Grid
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    rowSpacing: 16
-                                    columnSpacing: 24
-
-                                    // Position
-                                    StatusItem { label: "Position"; value: servoPosition.toString(); unit: ""; valueColor: accentColor }
-                                    StatusItem { label: "Goal"; value: servoGoal.toString(); unit: ""; valueColor: warningColor }
-                                    
-                                    // Load / Speed
-                                    StatusItem { label: "Load"; value: servoLoad.toString(); unit: ""; valueColor: successColor }
-                                    StatusItem { label: "Speed"; value: servoSpeed.toString(); unit: ""; valueColor: successColor }
-                                    
-                                    // Voltage / Current
-                                    StatusItem { label: "Voltage"; value: servoVoltage.toFixed(1); unit: "V"; valueColor: warningColor }
-                                    StatusItem { label: "Current"; value: servoCurrent.toString(); unit: "mA"; valueColor: warningColor }
-                                    
-                                    // Temperature / Moving
-                                    StatusItem { label: "Temperature"; value: servoTemperature.toString(); unit: "°C"; valueColor: servoTemperature > 60 ? errorColor : successColor }
-                                    StatusItem { label: "Moving"; value: servoMoving ? "Yes" : "No"; unit: ""; valueColor: servoMoving ? successColor : textSecondary }
-                                }
-
-                                Item { Layout.fillHeight: true }
-
-                                // Message Log (compact)
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 120
-                                    radius: 6
-                                    color: inputBgColor
-                                    border.color: borderColor
-                                    border.width: 1
-
-                                    ListView {
-                                        id: msgList
-                                        anchors.fill: parent
-                                        anchors.margins: 8
-                                        model: ddsManager.messages
-                                        clip: true
-                                        spacing: 2
-
-                                        delegate: Text {
-                                            width: msgList.width
-                                            text: modelData
-                                            color: textSecondary
-                                            font.pixelSize: 10
-                                            font.family: "Consolas"
-                                            elide: Text.ElideRight
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // ===== Programming Tab (Placeholder) =====
-                    Rectangle {
-                        color: cardColor
-                        radius: 8
-                        border.color: borderColor
-                        border.width: 1
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "⚙️ Programming Tab\n\nMemory Table & Edit\n(Coming Soon)"
-                            color: textSecondary
-                            font.pixelSize: 16
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-                    }
-                }
-            }
-        }
-
-        // ========== Footer Status Bar ==========
-        Rectangle {
-            Layout.fillWidth: true
-            height: 32
-            radius: 6
-            color: cardColor
-            border.color: borderColor
-            border.width: 1
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 12
-                spacing: 16
-
-                Text {
-                    text: ddsManager.daemonConnected ? "● Daemon" : "○ Daemon"
-                    color: ddsManager.daemonConnected ? successColor : errorColor
-                    font.pixelSize: 11
-                }
-
-                Rectangle { width: 1; height: 14; color: borderColor }
-
-                Text {
-                    text: isConnected ? ("🔗 " + portCombo.currentText + " @ " + baudCombo.currentText) : "Disconnected"
-                    color: isConnected ? successColor : textSecondary
-                    font.pixelSize: 11
-                }
-
-                Rectangle { width: 1; height: 14; color: borderColor }
-
-                Text {
-                    text: selectedServoId > 0 ? ("Servo ID: " + selectedServoId) : "No servo selected"
-                    color: selectedServoId > 0 ? accentColor : textSecondary
-                    font.pixelSize: 11
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "Phase 2: Servo Control"
-                    color: textSecondary
-                    font.pixelSize: 11
-                }
-            }
-        }
-    }
-
-    // ========== Status Item Component ==========
-    component StatusItem: ColumnLayout {
-        id: statusItemRoot
-        property string label: ""
-        property string value: ""
-        property string unit: ""
-        property color valueColor: textPrimary
-
-        spacing: 4
-
+    property int stPos: 0
+    property int stGoal: 0
+    property int stSpeed: 0
+    property int stLoad: 0
+    property real stVolt: 0.0
+    property int stTemp: 0
+    property int stCurr: 0
+    property int stMove: 0
+    property bool torqueOn: true
+
+    // ========== REUSABLE GROUPBOX ==========
+    component GroupBox : Rectangle {
+        property string title: ""
+        color: cPanel; radius: 4; border.color: cBorder; border.width: 1
         Text {
-            text: statusItemRoot.label
-            color: textSecondary
-            font.pixelSize: 11
+            text: parent.title; color: cAccent; font.pixelSize: 11; font.bold: true
+            x: 12; y: 8
         }
-        RowLayout {
-            spacing: 4
-            Text {
-                text: statusItemRoot.value
-                color: statusItemRoot.valueColor
-                font.pixelSize: 24
-                font.weight: Font.Bold
+    }
+
+    // ========== CENTRAL WIDGET AREA ==========
+    Item {
+        id: centralWidget
+        anchors.fill: parent
+
+        // --- Com Settings (x:10, y:10, w:171, h:191) ---
+        GroupBox {
+            title: "Com Settings"
+            x: 10; y: 10; width: 171; height: 191
+            
+            ColumnLayout {
+                x: 5; y: 30; width: 161; height: 161
+                GridLayout {
+                    columns: 2; rowSpacing: 8; columnSpacing: 5
+                    Text { text: "Com"; color: cSub; font.pixelSize: 10 }
+                    ComboBox { id: pCom; Layout.fillWidth: true; model: ["COM1", "COM3", "COM6", "COM7"]; currentIndex: 2; enabled: !isConnected; font.pixelSize: 10; implicitHeight: 22 }
+                    Text { text: "BaudR"; color: cSub; font.pixelSize: 10 }
+                    ComboBox { id: bCom; Layout.fillWidth: true; model: ["1000000", "500000", "115200"]; currentIndex: 0; enabled: !isConnected; font.pixelSize: 10; implicitHeight: 22 }
+                    Text { text: "DParity"; color: cSub; font.pixelSize: 10 }
+                    ComboBox { Layout.fillWidth: true; model: ["NONE", "ODD", "EVEN"]; font.pixelSize: 10; implicitHeight: 22 }
+                    Text { text: "TimeOut"; color: cSub; font.pixelSize: 10 }
+                    TextField { id: tOut; Layout.fillWidth: true; text: "50"; enabled: !isConnected; font.pixelSize: 10; implicitHeight: 22; background: Rectangle { color: cEdit; border.color: cBorder } }
+                }
+                Item { Layout.fillHeight: true }
+                Button {
+                    Layout.alignment: Qt.AlignRight
+                    text: isConnected ? "Close" : "Open"; implicitHeight: 26; font.pixelSize: 11
+                    onClicked: {
+                        if (isConnected) { ddsManager.sendDisconnect(); isConnected = false; }
+                        else { ddsManager.sendConnect(pCom.currentText, parseInt(bCom.currentText)); isConnected = true; }
+                    }
+                }
             }
-            Text {
-                text: statusItemRoot.unit
-                color: textSecondary
-                font.pixelSize: 12
-                visible: statusItemRoot.unit !== ""
+        }
+
+        // --- Servo List (x:10, y:210, w:171, h:471) ---
+        GroupBox {
+            title: "Servo List"
+            x: 10; y: 210; width: 171; height: 471
+            
+            ColumnLayout {
+                x: 5; y: 30; width: 161; height: 431; spacing: 8
+                Button {
+                    text: "Search"; Layout.alignment: Qt.AlignRight; enabled: isConnected; implicitHeight: 22; font.pixelSize: 10
+                    onClicked: { isSearching = true; ddsManager.sendScan(); scanTimer.start(); }
+                }
+                TextField {
+                    Layout.fillWidth: true; text: isSearching ? "Scanning..." : "-"; readOnly: true; font.pixelSize: 10; implicitHeight: 22
+                    background: Rectangle { color: cEdit; border.color: cBorder }
+                }
+                Rectangle {
+                    Layout.fillWidth: true; Layout.fillHeight: true; color: "#000"; border.color: cBorder; clip: true
+                    ListView {
+                        id: sView; anchors.fill: parent; model: servoList
+                        delegate: Rectangle {
+                            width: sView.width; height: 24; color: selectedId === modelData.id ? cHighlight : "transparent"
+                            Text { text: "ID: " + modelData.id; color: "#fff"; anchors.centerIn: parent; font.pixelSize: 11 }
+                            MouseArea { anchors.fill: parent; onClicked: { selectedId = modelData.id; readStateTimer.start(); } }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Tab Widget (x:190, y:10, w:741, h:671) ---
+        Rectangle {
+            x: 190; y: 10; width: 741; height: 671; color: "transparent"
+            
+            TabBar {
+                id: bar; width: parent.width; height: 30
+                TabButton { text: "Debug"; font.pixelSize: 11; width: 100 }
+                TabButton { text: "Programming"; font.pixelSize: 11; width: 120 }
+            }
+
+            StackLayout {
+                id: tabs; anchors.top: bar.bottom; anchors.bottom: parent.bottom; width: parent.width; currentIndex: bar.currentIndex
+                
+                // Debug Tab
+                Item {
+                    // Graph (x:10, y:10, w:601, h:351)
+                    Rectangle {
+                        x: 10; y: 10; width: 601; height: 351; color: "#050507"; border.color: cBorder
+                        Canvas {
+                            anchors.fill: parent; anchors.margins: 15
+                            onPaint: {
+                                var ctx = getContext("2d"); ctx.clearRect(0,0,width,height); ctx.strokeStyle="#1a1a1e"; ctx.lineWidth=1;
+                                for(var i=0; i<=20; i++){ ctx.beginPath(); ctx.moveTo(i*width/20,0); ctx.lineTo(i*width/20,height); ctx.stroke(); }
+                                for(var j=0; j<=10; j++){ ctx.beginPath(); ctx.moveTo(0,j*height/10); ctx.lineTo(width,j*height/10); ctx.stroke(); }
+                            }
+                        }
+                    }
+
+                    // Servo Control (x:10, y:365, w:411, h:161)
+                    GroupBox {
+                        title: "Servo Control"
+                        x: 10; y: 365; width: 411; height: 161
+                        ColumnLayout {
+                            x: 10; y: 30; width: 391; height: 121; spacing: 5
+                            RowLayout {
+                                RadioButton { text: "Write"; checked: true; font.pixelSize: 9 }
+                                RadioButton { text: "Sync Write"; font.pixelSize: 9 }
+                                RadioButton { text: "Reg Write"; font.pixelSize: 9 }
+                                CheckBox { text: "Torque Enable"; font.pixelSize: 9; checked: torqueOn; onCheckedChanged: if(selectedId>0) ddsManager.sendEnableTorque(selectedId, checked) }
+                            }
+                            Slider { id: gSli; Layout.fillWidth: true; from: 0; to: 4095; value: 2047 }
+                            GridLayout {
+                                columns: 5; rowSpacing: 8; columnSpacing: 10
+                                Text { text: "Acc"; color: cSub; font.pixelSize: 9 }
+                                TextField { id: aIn; text: "0"; Layout.preferredWidth: 50; implicitHeight: 20; background: Rectangle { color: cEdit; border.color: cBorder } }
+                                Text { text: "Goal"; color: cSub; font.pixelSize: 9 }
+                                TextField { id: gIn; text: Math.round(gSli.value).toString(); Layout.preferredWidth: 60; implicitHeight: 20; background: Rectangle { color: cEdit; border.color: cBorder } }
+                                Button { text: "Action"; implicitWidth: 60; implicitHeight: 22 }
+                                Text { text: "Speed"; color: cSub; font.pixelSize: 9 }
+                                TextField { id: sIn; text: "100"; Layout.preferredWidth: 50; implicitHeight: 20; background: Rectangle { color: cEdit; border.color: cBorder } }
+                                Text { text: "Time"; color: cSub; font.pixelSize: 9 }
+                                TextField { text: "0"; Layout.preferredWidth: 60; implicitHeight: 20; background: Rectangle { color: cEdit; border.color: cBorder } }
+                                Button { text: "Set"; highlighted: true; implicitWidth: 60; implicitHeight: 22; onClicked: if(selectedId>0) ddsManager.sendWritePos(selectedId, parseInt(gIn.text), parseInt(sIn.text), parseInt(aIn.text)) }
+                            }
+                        }
+                    }
+
+                    // Auto debug (x:10, y:530, w:411, h:101)
+                    GroupBox {
+                        title: "Auto debug"
+                        x: 10; y: 530; width: 411; height: 101
+                        GridLayout {
+                            x: 10; y: 25; width: 391; height: 70; columns: 6; columnSpacing: 10
+                            Text { text: "Start"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "0"; Layout.preferredWidth: 50; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                            Text { text: "Delay(Sweep)"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "2500"; Layout.preferredWidth: 50; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                            Item { Layout.fillWidth: true }
+                            Button { text: "Sweep"; implicitWidth: 60; implicitHeight: 20; font.pixelSize: 9 }
+                            Text { text: "End"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "4095"; Layout.preferredWidth: 50; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                            Text { text: "Step:Delay"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "10"; Layout.preferredWidth: 50; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                            Item { Layout.fillWidth: true }
+                            Button { text: "Step"; implicitWidth: 60; implicitHeight: 20; font.pixelSize: 9 }
+                        }
+                    }
+
+                    // Servo Feedback (x:430, y:365, w:301, h:161)
+                    GroupBox {
+                        title: "Servo Feedback"
+                        x: 430; y: 365; width: 301; height: 161
+                        GridLayout {
+                            x: 10; y: 25; width: 281; height: 130; columns: 4; rowSpacing: 2
+                            Text { text: "Voltage:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: stVolt.toFixed(1) + "V"; color: "#fff"; font.pixelSize: 9; font.bold: true }
+                            Text { text: "Torque:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: String(stLoad); color: "#fff"; font.pixelSize: 9; font.bold: true }
+                            Text { text: "Current:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: String(stCurr); color: "#fff"; font.pixelSize: 9 }
+                            Text { text: "Speed:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: String(stSpeed); color: "#fff"; font.pixelSize: 9 }
+                            Text { text: "Temperature:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: String(stTemp); color: "#fff"; font.pixelSize: 9 }
+                            Text { text: "Position:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: String(stPos); color: cAccent; font.pixelSize: 10; font.bold: true }
+                            Text { text: "Moving:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: String(stMove); color: "#fff"; font.pixelSize: 9 }
+                            Text { text: "Goal:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: String(stGoal); color: "#fff"; font.pixelSize: 9 }
+                            Text { text: "State:"; color: cSub; font.pixelSize: 9; Layout.alignment: Qt.AlignRight }
+                            Text { text: "-"; color: "#fff"; font.pixelSize: 9; Layout.columnSpan: 3 }
+                        }
+                    }
+
+                    // Data analysis (x:430, y:530, w:301, h:101)
+                    GroupBox {
+                        title: "Data analysis"
+                        x: 430; y: 530; width: 301; height: 101
+                        GridLayout {
+                            x: 10; y: 25; width: 281; height: 70; columns: 4; columnSpacing: 8
+                            Text { text: "time(s)"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "30"; Layout.preferredWidth: 40; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                            Item { Layout.fillWidth: true }
+                            Button { text: "Export"; implicitWidth: 50; implicitHeight: 20; font.pixelSize: 9 }
+                            Text { text: "file:rows"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "record.csv"; Layout.fillWidth: true; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                            TextField { text: "0"; Layout.preferredWidth: 40; readOnly: true; font.pixelSize: 9; implicitHeight: 18; background: Rectangle { color: "#111"; border.color: cBorder } }
+                            Button { text: "Empty"; implicitWidth: 50; implicitHeight: 20; font.pixelSize: 9 }
+                        }
+                    }
+
+                    // Checkboxes/Settings (x:620, y:60, w:111, h:304)
+                    ColumnLayout {
+                        x: 620; y: 60; width: 111; height: 304; spacing: 2
+                        Repeater {
+                            model: ["Position", "Torque", "Speed", "Current", "Temperature", "Voltage"]
+                            CheckBox { text: modelData; font.pixelSize: 9; checked: index < 3; padding: 0 }
+                        }
+                        Text { text: "Horizontal"; color: cSub; font.pixelSize: 9 }
+                        Slider { Layout.fillWidth: true; height: 16 }
+                        Text { text: "Zoom X"; color: cSub; font.pixelSize: 9 }
+                        Slider { Layout.fillWidth: true; height: 16 }
+                        GridLayout {
+                            columns: 2; columnSpacing: 5
+                            Text { text: "Up"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "0"; Layout.fillWidth: true; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                            Text { text: "Down"; color: cSub; font.pixelSize: 9 }
+                            TextField { text: "0"; Layout.fillWidth: true; implicitHeight: 18; font.pixelSize: 9; background: Rectangle { color: cEdit; border.color: cBorder } }
+                        }
+                        Item { Layout.fillHeight: true }
+                    }
+                }
+
+                // Programming Tab
+                Rectangle { color: cPanel; Text { text: "Memory Table Interface"; anchors.centerIn: parent; color: cSub } }
             }
         }
     }
 
-    // ========== Timers ==========
-    Timer {
-        id: scanTimer
-        interval: 2000
-        onTriggered: {
+    // ========== Logic ==========
+    Connections {
+        target: ddsManager
+        ignoreUnknownSignals: true
+        function onScanResultReceived(ids) {
             isSearching = false
-            // 임시: 테스트용 더미 데이터 (실제로는 DDS feedback에서 받음)
-            foundServos = [
-                { id: 1, model: "ST3215" }
-            ]
+            var n = []
+            for(var i=0; i<ids.length; i++) n.push({id: ids[i]})
+            servoList = n
         }
-    }
-
-    Timer {
-        id: readStateTimer
-        interval: 100
-        repeat: true
-        onTriggered: {
-            if (selectedServoId > 0 && isConnected) {
-                ddsManager.sendReadState(selectedServoId)
+        function onServoStateReceived(id, pos, spd, load, vlt, temp, curr, move) {
+            if (id === selectedId) {
+                stPos = pos; stSpeed = spd; stLoad = load; stVolt = vlt;
+                stTemp = temp; stCurr = curr; stMove = move;
+                stGoal = Math.round(gSli.value)
             }
         }
     }
+
+    Timer { id: scanTimer; interval: 5000; onTriggered: isSearching = false }
+    Timer { id: readStateTimer; interval: 100; repeat: true; onTriggered: if(selectedId > 0 && isConnected) ddsManager.sendReadState(selectedId) }
 }
