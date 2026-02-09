@@ -287,8 +287,9 @@ void ServoDaemon::handleReadState(int servoId) {
   int voltage = sms_sts_->read_voltage(servoId);
   int temp = sms_sts_->read_temperature(servoId);
   int current = sms_sts_->read_current(servoId);
+  int moving = sms_sts_->read_move(servoId);
 
-  sendServoState(servoId, pos, speed, load, voltage, temp, current);
+  sendServoState(servoId, pos, speed, load, voltage, temp, current, moving > 0);
 }
 
 void ServoDaemon::handleWrite(int servoId, int address, int value, int size) {
@@ -388,7 +389,8 @@ void ServoDaemon::sendScanResult(const std::vector<int32_t> &foundIds) {
 }
 
 void ServoDaemon::sendServoState(int id, int pos, int speed, int load,
-                                 int voltage, int temp, int current) {
+                                 int voltage, int temp, int current,
+                                 bool moving) {
   if (!feedback_writer_)
     return;
 
@@ -405,6 +407,7 @@ void ServoDaemon::sendServoState(int id, int pos, int speed, int load,
   state.voltage(voltage);
   state.temperature(temp);
   state.current(current);
+  state.moving(moving);
 
   fb.state(state);
   fb.message("State update for ID " + std::to_string(id));
@@ -424,7 +427,8 @@ void ServoDaemon::broadcastServoStates() {
     int voltage = sms_sts_->read_voltage(id);
     int temp = sms_sts_->read_temperature(id);
     int current = sms_sts_->read_current(id);
+    int moving = sms_sts_->read_move(id);
 
-    sendServoState(id, pos, speed, load, voltage, temp, current);
+    sendServoState(id, pos, speed, load, voltage, temp, current, moving > 0);
   }
 }

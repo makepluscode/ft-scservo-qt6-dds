@@ -80,7 +80,7 @@ private:
   void sendStatus(bool connected, const std::string &currentPort = "");
   void sendScanResult(const std::vector<int32_t> &foundIds);
   void sendServoState(int id, int pos, int speed, int load, int voltage,
-                      int temp, int current);
+                      int temp, int current, bool moving);
 
   // --- Periodic state broadcast ---
   void broadcastServoStates();

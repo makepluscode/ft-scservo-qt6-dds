@@ -10,8 +10,8 @@ For more information, type 'rtiddsgen -help' at a command shell
 or consult the Code Generator User's Manual.
 */
 
-#ifndef scservo_1338806988_hpp
-#define scservo_1338806988_hpp
+#ifndef scservo_1338807013_hpp
+#define scservo_1338807013_hpp
 
 #include <iosfwd>
 
@@ -77,7 +77,7 @@ namespace scservo {
 
         ServoState();
 
-        ServoState(int32_t id_,int32_t position_,int32_t speed_,int32_t load_,int32_t voltage_,int32_t temperature_,int32_t current_);
+        ServoState(int32_t id_,int32_t position_,int32_t speed_,int32_t load_,int32_t voltage_,int32_t temperature_,int32_t current_,bool moving_);
 
         int32_t& id() noexcept {
             return m_id_;
@@ -170,6 +170,19 @@ namespace scservo {
             m_current_ = value;
         }
 
+        bool& moving() noexcept {
+            return m_moving_;
+        }
+
+        const bool& moving() const noexcept {
+            return m_moving_;
+        }
+
+        void moving(bool value) {
+
+            m_moving_ = value;
+        }
+
         bool operator == (const ServoState& other_) const;
         bool operator != (const ServoState& other_) const;
 
@@ -184,6 +197,7 @@ namespace scservo {
         int32_t m_voltage_;
         int32_t m_temperature_;
         int32_t m_current_;
+        bool m_moving_;
 
     };
 
@@ -858,4 +872,4 @@ namespace rti {
 #define NDDSUSERDllExport
 #endif
 
-#endif // scservo_1338806988_hpp
+#endif // scservo_1338807013_hpp

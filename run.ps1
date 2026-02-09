@@ -15,7 +15,8 @@ $QoSFile = "$ProjectRoot\USER_QOS_PROFILES.xml" # 원본 위치 사용
 # RTI DDS 런타임 PATH & QoS
 $NDDSHOME = "C:\Program Files\rti_connext_dds-7.5.0"
 $env:PATH = "$NDDSHOME\lib\x64Win64VS2017;$env:PATH"
-$env:NDDS_QOS_PROFILES = $QoSFile
+# 중복 로드 에러 방지를 위해 환경변수 비움 (로컬 파일 자동 감지 활용)
+$env:NDDS_QOS_PROFILES = "" 
 
 # Qt6 런타임 PATH
 $Qt6Path = "C:\Qt\6.10.2\msvc2022_64"
@@ -25,7 +26,9 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  FT SCServo Qt6 DDS Runner" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "QoS File: $QoSFile" -ForegroundColor Gray
+Write-Host "Qt6 Path:  $Qt6Path" -ForegroundColor Gray
+Write-Host "NDDS Home: $NDDSHOME" -ForegroundColor Gray
+Write-Host ""
 
 # 실행 파일 확인
 $DaemonExe = "$BuildDir\ServoDaemon.exe"
@@ -57,7 +60,7 @@ switch ($Mode) {
         Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
             cd '$BuildDir'
             `$env:PATH = '$NDDSHOME\lib\x64Win64VS2017;'+`$env:PATH
-            `$env:NDDS_QOS_PROFILES = '$QoSFile'
+            `$env:NDDS_QOS_PROFILES = ''
             .\ServoDaemon.exe
 "@
         

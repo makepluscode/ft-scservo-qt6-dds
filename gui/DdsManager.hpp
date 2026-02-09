@@ -6,6 +6,7 @@
 #include <QString>
 #include <QStringList>
 #include <QTimer>
+#include <QVariant>
 #include <memory>
 
 #include "scservo.hpp"
@@ -52,6 +53,12 @@ signals:
   void daemonConnectedChanged();
   void pingCountChanged();
   void pongCountChanged();
+
+  // Hardware feedback signals
+  void scanResultReceived(QVariantList servoIds);
+  void servoStateReceived(int servoId, int position, int speed, int load,
+                          double voltage, int temperature, int current,
+                          int moving);
 
 private slots:
   void pollFeedback();

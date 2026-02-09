@@ -245,6 +245,11 @@ void DdsManager::pollFeedback() {
           }
           addMessage(
               QString("Scan found %1 servos").arg(found_servo_ids_.size()));
+          QVariantList variantIds;
+          for (int id : found_servo_ids_) {
+            variantIds.append(id);
+          }
+          emit scanResultReceived(variantIds);
         } else if (type == "servo_state") {
           // Phase 2: Servo State
           const auto &state = fb.state();
@@ -255,6 +260,10 @@ void DdsManager::pollFeedback() {
                          .arg(state.load())
                          .arg(state.voltage() / 10.0)
                          .arg(state.temperature()));
+          emit servoStateReceived(state.id(), state.position(), state.speed(),
+                                  state.load(), state.voltage() / 10.0,
+                                  state.temperature(), state.current(),
+                                  state.moving() ? 1 : 0);
         } else if (type == "ack") {
           addMessage(QString("ACK: %1").arg(QString::fromStdString(msg)));
         }

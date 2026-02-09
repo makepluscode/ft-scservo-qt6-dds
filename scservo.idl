@@ -17,6 +17,7 @@ module scservo {
         int32 voltage;      // 0.1V 단위
         int32 temperature;
         int32 current;      // mA
+        boolean moving;
     };
 
     // 메모리 테이블 항목

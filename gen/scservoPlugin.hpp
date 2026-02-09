@@ -10,8 +10,8 @@ For more information, type 'rtiddsgen -help' at a command shell
 or consult the Code Generator User's Manual.
 */
 
-#ifndef scservoPlugin_1338806988_h
-#define scservoPlugin_1338806988_h
+#ifndef scservoPlugin_1338807013_h
+#define scservoPlugin_1338807013_h
 
 #include "scservo.hpp"
 
@@ -835,4 +835,4 @@ namespace scservo {
 #define NDDSUSERDllExport
 #endif
 
-#endif /* scservoPlugin_1338806988_h */
+#endif /* scservoPlugin_1338807013_h */

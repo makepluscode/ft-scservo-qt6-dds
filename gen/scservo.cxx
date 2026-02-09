@@ -36,18 +36,20 @@ namespace scservo {
         m_load_ (0) ,
         m_voltage_ (0) ,
         m_temperature_ (0) ,
-        m_current_ (0)  {
+        m_current_ (0) ,
+        m_moving_ (0)  {
 
     }   
 
-    ServoState::ServoState (int32_t id_,int32_t position_,int32_t speed_,int32_t load_,int32_t voltage_,int32_t temperature_,int32_t current_):
+    ServoState::ServoState (int32_t id_,int32_t position_,int32_t speed_,int32_t load_,int32_t voltage_,int32_t temperature_,int32_t current_,bool moving_):
         m_id_(id_), 
         m_position_(position_), 
         m_speed_(speed_), 
         m_load_(load_), 
         m_voltage_(voltage_), 
         m_temperature_(temperature_), 
-        m_current_(current_) {
+        m_current_(current_), 
+        m_moving_(moving_) {
     }
 
     void ServoState::swap(ServoState& other_)  noexcept 
@@ -60,6 +62,7 @@ namespace scservo {
         swap(m_voltage_, other_.m_voltage_);
         swap(m_temperature_, other_.m_temperature_);
         swap(m_current_, other_.m_current_);
+        swap(m_moving_, other_.m_moving_);
     }  
 
     bool ServoState::operator == (const ServoState& other_) const {
@@ -84,6 +87,9 @@ namespace scservo {
         if (m_current_ != other_.m_current_) {
             return false;
         }
+        if (m_moving_ != other_.m_moving_) {
+            return false;
+        }
         return true;
     }
 
@@ -101,7 +107,8 @@ namespace scservo {
         o << "load: " << sample.load()<<", ";
         o << "voltage: " << sample.voltage()<<", ";
         o << "temperature: " << sample.temperature()<<", ";
-        o << "current: " << sample.current();
+        o << "current: " << sample.current()<<", ";
+        o << "moving: " << sample.moving();
         o <<"]";
         return o;
     }
@@ -630,7 +637,7 @@ namespace rti {
 
                 static std::atomic_bool is_initialized {false};
 
-                static DDS_TypeCode_Member ServoState_g_tc_members[7]=
+                static DDS_TypeCode_Member ServoState_g_tc_members[8]=
                 {
 
                     {
@@ -744,6 +751,22 @@ namespace rti {
                         RTI_CDR_REQUIRED_MEMBER, /* Is a key? */
                         DDS_PUBLIC_MEMBER,/* Member visibility */
                         RTICdrTypeCodeAnnotations_INITIALIZER
+                    }, 
+                    {
+                        (char *)"moving",/* Member name */
+                        {
+                            7,/* Representation ID */
+                            DDS_BOOLEAN_FALSE,/* Is a pointer? */
+                            -1, /* Bitfield bits */
+                            NULL/* Member type code is assigned later */
+                        },
+                        0, /* Ignored */
+                        0, /* Ignored */
+                        0, /* Ignored */
+                        NULL, /* Ignored */
+                        RTI_CDR_REQUIRED_MEMBER, /* Is a key? */
+                        DDS_PUBLIC_MEMBER,/* Member visibility */
+                        RTICdrTypeCodeAnnotations_INITIALIZER
                     }
                 };
 
@@ -757,7 +780,7 @@ namespace rti {
                         0, /* Ignored */
                         0, /* Ignored */
                         NULL, /* Ignored */
-                        7, /* Number of members */
+                        8, /* Number of members */
                         ServoState_g_tc_members, /* Members */
                         DDS_VM_NONE, /* Ignored */
                         RTICdrTypeCodeAnnotations_INITIALIZER,
@@ -779,6 +802,7 @@ namespace rti {
                 ServoState_g_tc_members[4]._representation._typeCode = (RTICdrTypeCode *)&DDS_g_tc_long;
                 ServoState_g_tc_members[5]._representation._typeCode = (RTICdrTypeCode *)&DDS_g_tc_long;
                 ServoState_g_tc_members[6]._representation._typeCode = (RTICdrTypeCode *)&DDS_g_tc_long;
+                ServoState_g_tc_members[7]._representation._typeCode = (RTICdrTypeCode *)&::rti::topic::interpreter::initialize_bool_typecode();
 
                 /* Initialize the values for member annotations. */
                 ServoState_g_tc_members[0]._annotations._defaultValue._d = RTI_XCDR_TK_LONG;
@@ -823,6 +847,8 @@ namespace rti {
                 ServoState_g_tc_members[6]._annotations._minValue._u.long_value = RTIXCdrLong_MIN;
                 ServoState_g_tc_members[6]._annotations._maxValue._d = RTI_XCDR_TK_LONG;
                 ServoState_g_tc_members[6]._annotations._maxValue._u.long_value = RTIXCdrLong_MAX;
+                ServoState_g_tc_members[7]._annotations._defaultValue._d = RTI_XCDR_TK_BOOLEAN;
+                ServoState_g_tc_members[7]._annotations._defaultValue._u.boolean_value = 0;
 
                 ServoState_g_tc._data._sampleAccessInfo = sample_access_info();
                 ServoState_g_tc._data._typePlugin = type_plugin_info();    
@@ -838,7 +864,7 @@ namespace rti {
 
                 ::scservo::ServoState *sample;
 
-                static RTIXCdrMemberAccessInfo ServoState_g_memberAccessInfos[7] =
+                static RTIXCdrMemberAccessInfo ServoState_g_memberAccessInfos[8] =
                 {RTIXCdrMemberAccessInfo_INITIALIZER};
 
                 static RTIXCdrSampleAccessInfo ServoState_g_sampleAccessInfo = 
@@ -875,6 +901,9 @@ namespace rti {
 
                 ServoState_g_memberAccessInfos[6].bindingMemberValueOffset[0] = 
                 (RTIXCdrUnsignedLong) ((char *)&sample->current() - (char *)sample);
+
+                ServoState_g_memberAccessInfos[7].bindingMemberValueOffset[0] = 
+                (RTIXCdrUnsignedLong) ((char *)&sample->moving() - (char *)sample);
 
                 ServoState_g_sampleAccessInfo.memberAccessInfos = 
                 ServoState_g_memberAccessInfos;
@@ -1961,6 +1990,7 @@ namespace dds {
             sample.voltage(0);
             sample.temperature(0);
             sample.current(0);
+            sample.moving(0);
         }
 
         void topic_type_support< ::scservo::ServoState >::allocate_sample(::scservo::ServoState& sample, int, int) 

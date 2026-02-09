@@ -4,48 +4,126 @@
 
 namespace feetech_servo {
 
-// ... (상수 정의 생략하거나 그대로 유지)
-//-------EPROM(只读)--------
-#define SMS_STS_MODEL_L 3
-#define SMS_STS_MODEL_H 4
+//-------EPROM(Read Only)--------
+#define SMS_STS_FIRMWARE_MAJOR                                                 \
+  0 // Firmware major version number. 펌웨어 메이저 버전 번호.
+#define SMS_STS_FIRMWARE_MINOR                                                 \
+  1 // Firmware minor version number. 펌웨어 마이너 버전 번호.
+#define SMS_STS_SERVO_MAJOR                                                    \
+  3 // Servo major version number. 서보 메이저 버전 번호.
+#define SMS_STS_SERVO_MINOR                                                    \
+  4 // Servo minor version number. 서보 마이너 버전 번호.
 
-//-------EPROM(读写)--------
-#define SMS_STS_ID 5
-#define SMS_STS_BAUD_RATE 6
-#define SMS_STS_MIN_ANGLE_LIMIT_L 9
+//-------EPROM(Read/Write)--------
+#define SMS_STS_ID                                                             \
+  5 // ID. 버스 상의 고유 식별 코드. 254(0xFE)는 브로드캐스트 ID.
+#define SMS_STS_BAUD_RATE                                                      \
+  6 // Baudrate. 0-7은 각각 1M, 500K, 250K, 128K, 115200, 76800, 57600, 38400을
+    // 의미.
+#define SMS_STS_RETURN_DELAY                                                   \
+  7 // Return delay. 최소 단위 2us. 응답 지연 최대 설정 508us (254*2).
+#define SMS_STS_RESPONSE_STATUS_LEVEL                                          \
+  8 // Response status level. 0: Read/PING 외 응답 없음, 1: 모든 명령에 응답.
+#define SMS_STS_MIN_ANGLE_LIMIT_L                                              \
+  9 // Minimum angle. 동작 범위 최소값 제한. 멀티턴 모드 시 0. 최소값 -32766.
 #define SMS_STS_MIN_ANGLE_LIMIT_H 10
-#define SMS_STS_MAX_ANGLE_LIMIT_L 11
+#define SMS_STS_MAX_ANGLE_LIMIT_L                                              \
+  11 // Maximum angle. 동작 범위 최대값 제한. 멀티턴 모드 시 0. 최대값 32767.
 #define SMS_STS_MAX_ANGLE_LIMIT_H 12
-#define SMS_STS_CW_DEAD 26
-#define SMS_STS_CCW_DEAD 27
-#define SMS_STS_OFS_L 31
+#define SMS_STS_MAX_TEMPERATURE_LIMIT                                          \
+  13 // Maximum temperature. 최대 작동 온도 제한. 단위 1°C. 예: 70 -> 70°C.
+#define SMS_STS_MAX_INPUT_VOLTAGE                                              \
+  14 // Maximum input voltage. 최대 입력 전압 제한. 단위 0.1V. 예: 80 -> 8.0V.
+#define SMS_STS_MIN_INPUT_VOLTAGE                                              \
+  15 // Minimum input voltage. 최소 입력 전압 제한. 단위 0.1V. 예: 40 -> 4.0V.
+#define SMS_STS_MAX_TORQUE_L                                                   \
+  16 // Maximum torque. 최대 출력 토크 제한. 1000은 100% 토크.
+#define SMS_STS_MAX_TORQUE_H 17
+#define SMS_STS_PHASE                                                          \
+  18 // Phase. 특수 기능 바이트. 특별한 요구사항 없으면 수정 금지.
+#define SMS_STS_UNLOADING_CONDITIONS                                           \
+  19 // Unloading conditions. 비트 설정 시 해당 보호 활성화 (Voltage, Sensor,
+     // Temp, Current, Angle, Overload).
+#define SMS_STS_LED_ALARM_CONDITIONS                                           \
+  20 // LED alarm conditions. 비트 설정 시 해당 LED 깜빡임 활성화.
+#define SMS_STS_POS_P_COEFF                                                    \
+  21 // Position loop P (Proportional) coefficient. 모터 제어 비례 계수.
+#define SMS_STS_POS_D_COEFF                                                    \
+  22 // Position loop D (Differential) coefficient. 모터 제어 미분 계수.
+#define SMS_STS_POS_I_COEFF                                                    \
+  23 // Position loop I (Integral) coefficient. 모터 제어 적분 계수.
+#define SMS_STS_MIN_STARTING_FORCE_L                                           \
+  24 // Minimum starting force. 최소 출력 시동 토크. 1000은 100%.
+#define SMS_STS_MIN_STARTING_FORCE_H 25
+#define SMS_STS_CW_DEAD                                                        \
+  26 // Clockwise insensitive zone. 시계 방향 불감도 영역. 단위는 최소 분해능
+     // 각도.
+#define SMS_STS_CCW_DEAD                                                       \
+  27 // Anti-clockwise insensitive zone. 반시계 방향 불감도 영역. 단위는 최소
+     // 분해능 각도.
+#define SMS_STS_PROTECTION_CURRENT_L                                           \
+  28 // Protection current. 전류 제한. 500 * 6.5mA = 3250mA.
+#define SMS_STS_PROTECTION_CURRENT_H 29
+#define SMS_STS_ANGLE_RESOLUTION                                               \
+  30 // Angle resolution. 센서 최소 분해능 각도 증폭 계수. 1-3. 멀티턴 제어 시
+     // 0x12 BIT4=1 필요.
+#define SMS_STS_OFS_L                                                          \
+  31 // Position correction. 위치 보정. BIT11은 방향, 0-2047 스텝 범위.
 #define SMS_STS_OFS_H 32
-#define SMS_STS_MODE 33
+#define SMS_STS_MODE                                                           \
+  33 // Operation mode. 0: 위치 서보, 1: 정속(0x2E), 2: PWM 오픈루프(0x2C), 3:
+     // 스텝 서보(0x2A).
+#define SMS_STS_PROTECTION_TORQUE                                              \
+  34 // Protection torque. 과부하 보호 진입 후 출력 토크. 20 -> 20%.
+#define SMS_STS_PROTECTION_TIME                                                \
+  35 // Protection time. 과부하 지속 허용 시간. 200 -> 2초 (단위 10ms).
+#define SMS_STS_OVERLOAD_TORQUE                                                \
+  36 // Overload torque. 과부하 보호 시작 토크 임계값. 80 -> 80%.
+#define SMS_STS_SPEED_P_COEFF                                                  \
+  37 // Speed closed-loop proportional (P) coefficient. 정속 모드(모드 1) 속도
+     // 루프 P 계수.
+#define SMS_STS_OVERCURRENT_TIME                                               \
+  38 // Overcurrent protection time. 과전류 보호 시간. 254 * 10ms = 2540ms.
+#define SMS_STS_SPEED_I_COEFF                                                  \
+  39 // Velocity closed-loop integral (I) coefficient. 정속 모드 속도 루프 I
+     // 계수.
 
-//-------SRAM(读写)--------
-#define SMS_STS_TORQUE_ENABLE 40
-#define SMS_STS_ACC 41
-#define SMS_STS_GOAL_POSITION_L 42
+//-------SRAM(Read/Write)--------
+#define SMS_STS_TORQUE_ENABLE                                                  \
+  40 // Torque switch. 0: 출력 끄기, 1: 출력 켜기, 128: 현재 위치를 2048로 보정.
+#define SMS_STS_ACC 41 // Acceleration. 가속도. 10 -> 1000 step/s^2.
+#define SMS_STS_GOAL_POSITION_L                                                \
+  42 // Target location. 목표 위치. 절대 위치 제어 모드.
 #define SMS_STS_GOAL_POSITION_H 43
-#define SMS_STS_GOAL_TIME_L 44
+#define SMS_STS_GOAL_TIME_L                                                    \
+  44 // Operation time. PWM 오픈루프 속도 제어 모드 운전 시간.
 #define SMS_STS_GOAL_TIME_H 45
-#define SMS_STS_GOAL_SPEED_L 46
+#define SMS_STS_GOAL_SPEED_L                                                   \
+  46 // Operation speed. 운전 속도. step/s. 50 step/s = 0.732 RPM.
 #define SMS_STS_GOAL_SPEED_H 47
-#define SMS_STS_TORQUE_LIMIT_L 48
+#define SMS_STS_TORQUE_LIMIT_L                                                 \
+  48 // Torque limit. 토크 제한. 초기값은 최대 토크(0x10).
 #define SMS_STS_TORQUE_LIMIT_H 49
-#define SMS_STS_LOCK 55
+#define SMS_STS_LOCK                                                           \
+  55 // Lock flag. 0: 쓰기 잠금 해제(EPROM 저장 가능), 1: 잠금(저장 불가).
 
-//-------SRAM(只读)--------
-#define SMS_STS_PRESENT_POSITION_L 56
+//-------SRAM(Read Only)--------
+#define SMS_STS_PRESENT_POSITION_L 56 // Current location. 현재 위치 피드백.
 #define SMS_STS_PRESENT_POSITION_H 57
-#define SMS_STS_PRESENT_SPEED_L 58
+#define SMS_STS_PRESENT_SPEED_L 58 // Current speed. 현재 속도 피드백. step/s.
 #define SMS_STS_PRESENT_SPEED_H 59
-#define SMS_STS_PRESENT_LOAD_L 60
+#define SMS_STS_PRESENT_LOAD_L                                                 \
+  60 // Current load. 현재 부하. 전압 듀티 사이클. 0.1%.
 #define SMS_STS_PRESENT_LOAD_H 61
-#define SMS_STS_PRESENT_VOLTAGE 62
-#define SMS_STS_PRESENT_TEMPERATURE 63
-#define SMS_STS_MOVING 66
-#define SMS_STS_PRESENT_CURRENT_L 69
+#define SMS_STS_PRESENT_VOLTAGE 62     // Current voltage. 현재 전압. 0.1V.
+#define SMS_STS_PRESENT_TEMPERATURE 63 // Current temperature. 현재 온도. °C.
+#define SMS_STS_ASYNC_WRITE_FLAG                                               \
+  64 // Asynchronous write flag. 비동기 쓰기 플래그.
+#define SMS_STS_SERVO_STATUS                                                   \
+  65 // Servo status. 에러 상태 비트 (Voltage, Sensor, Temp, Current, Angle,
+     // Overload).
+#define SMS_STS_MOVING 66            // Move flag. 1: 이동 중, 0: 정지.
+#define SMS_STS_PRESENT_CURRENT_L 69 // Current current. 현재 전류. 6.5mA 단위.
 #define SMS_STS_PRESENT_CURRENT_H 70
 
 class SMS_STS {
